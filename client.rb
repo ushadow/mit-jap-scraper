@@ -6,6 +6,7 @@ require 'logger'
 
 class Client
   DRILL_URI = 'http://dokkai.scripts.mit.edu/link_page.cgi?drill='
+  USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/534.30 (KHTML, like Gecko) Chrome/12.0.742.124 Safari/534.30'
 
   def initialize
     @mech = mechanizer
@@ -25,10 +26,10 @@ class Client
   end
 
   # Args:
-  #   lesson
+  #   lesson:: an xml node representing a lesson.
   # Returns an array of drill urls for each section in a lesson.
   def sections(lesson)
-    node = lesson.parent
+    node = lesson
     sections = node.css('ul>li')
     sections.map do |section|
       section_name = section.css('>a').text
@@ -49,7 +50,7 @@ class Client
   end
 
   def lessons(node)
-    elements = node.css('a[name^="lesson"]')
+    elements = node.css('a[name^="lesson"]').parent
   end
 
   # Returns the bits of an audio url.
@@ -73,7 +74,7 @@ class Client
 
   def mechanizer
     mech = Mechanize.new
-    mech.user_agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/534.30 (KHTML, like Gecko) Chrome/12.0.742.124 Safari/534.30'
+    mech.user_agent = USER_AGENT
     mech
   end
 
@@ -81,7 +82,7 @@ class Client
     curb = Curl::Easy.new
     curb.enable_cookies = true
     curb.follow_location = true
-    curb.useragent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/534.30 (KHTML, like Gecko) Chrome/12.0.742.124 Safari/534.30'
+    curb.useragent = USER_AGENT
     curb
   end
 end
