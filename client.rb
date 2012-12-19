@@ -7,11 +7,24 @@ require 'logger'
 class Client
   DRILL_URI = 'http://dokkai.scripts.mit.edu/link_page.cgi?drill='
   USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/534.30 (KHTML, like Gecko) Chrome/12.0.742.124 Safari/534.30'
+  COURSE_URL = "http://web.mit.edu/%s/www/review.html"
 
   def initialize
     @mech = mechanizer
     @curb = curber
     @logger = Logger.new(STDERR)
+  end
+
+  # Lists all the lessons and sections and the audio files for a course.
+  def list(course_number)
+    url = COURSE_URL % course_number
+    root = xml url
+    lesson_nodes = lessons root
+    lesson_nodes.map do |lesson|
+      number = lesson.text.split[1]
+      lesson_name = "Lesson" + number.rjust(2, '0')
+      {lesson_name: lesson_name, sections: sections(lesson)}
+    end
   end
 
   # Returns an array of audio urls in one drill.
@@ -29,7 +42,7 @@ class Client
   #   lesson:: an xml node representing a lesson.
   # Returns an array of drill urls for each section in a lesson.
   def sections(lesson)
-    node = lesson
+    node = lesson.parent
     sections = node.css('ul>li')
     sections.map do |section|
       section_name = section.css('>a').text
@@ -44,13 +57,15 @@ class Client
     end
   end
 
+  # Gets the +Nokogiri.XML+ node representing the root of the url.
   def xml(url)
     xml = @mech.get(url).body
     Nokogiri.XML(xml).root
   end
 
+  # Gets all the nodes representing a lesson.
   def lessons(node)
-    elements = node.css('a[name^="lesson"]').parent
+    node.css('a[name^="lesson"]')
   end
 
   # Returns the bits of an audio url.
@@ -86,30 +101,3 @@ class Client
     curb
   end
 end
-
-if __FILE__ == $0
-  client = Client.new
-  root = client.xml 'http://web.mit.edu/21f.501/www/review.html'
-  lessons = client.lessons(root)
-  lessons.each do |lesson|
-    sections = client.sections lesson
-    sections.each do |section|
-      lesson_name = lesson.text.gsub /[^\w\d]/, ''
-      filename_prefix = File.join lesson_name + section[:section_name]
-      section[:drill_urls].each_with_index do |d, i|
-        filename = "#{filename_prefix}-#{i.to_s.rjust(3, '0')}.mp3"
-        puts filename
-        bits = client.audio d
-        if bits
-          File.open filename, 'w' do |f|
-            f.write bits
-          end
-          print "ok\n"
-        else
-          printj "fail\n"
-        end
-      end
-    end
-  end
-end
-
