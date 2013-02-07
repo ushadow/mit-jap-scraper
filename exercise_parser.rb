@@ -8,58 +8,81 @@ require 'logger'
 # downlading exercises.
 class ExerciseParser
   DRILL_URI = 'http://dokkai.scripts.mit.edu/link_page.cgi?drill='
+  USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/534.30 (KHTML, like Gecko) Chrome/12.0.742.124 Safari/534.30'
 
   # Creates a new client instance.
-  #
-  # str_or_io:: string of html doc or a html +File+.
-  #
-  def initialize str_or_io
+  def initialize 
     @logger = Logger.new(STDERR)
-    @root = parse str_or_io
+    @mech = mechanizer
+    @curb = curber
   end
 
   # Lists all the lessons and sections for a course.
-  def parse_course
-    lesson_nodes = parse_lessons @root 
+  def parse_course(str_or_io)
+    root = parse str_or_io
+    lesson_nodes = parse_lessons root 
     lessons = lesson_nodes.map do |lesson|
       lesson_name = lesson.text
       {lesson_name: lesson_name, sections: parse_sections(lesson)}
     end
-    course_name = @root.css('title').text
+    course_name = root.css('title').text
     {course_name: course_name, lessons: lessons}
   end
 
-  # Returns an array of audio urls in one drill.
-  def drill_urls(drill_id)
-    frames = @mech.get(DRILL_URI + drill_id).iframes
-    urls = frames.map do |f|
-      xml = @mech.get(f.uri).body
-      regex = %r{"(http://dokkai.mit.edu/drills/user_audio/.+?\.mp3)"}
-      xml.scan(regex).flatten
-    end
-    urls.flatten
+  def parse_drill(url)
+    page = @mech.get url
+    root_node = parse page.body 
+    instruction = root_node.css('#instr_text').text
+    frames = page.iframes
+    frame = frames[0]
+    html = @mech.get(frame.uri).body
+    regex =  %r{<div .*?class="list".*?</div>\s*</div>}m
+    questions =  html.scan(regex).map do |question| 
+      question_node = parse question
+      parse_question question_node 
+    end 
   end
 
-  # Args:
-  #   lesson:: an xml node representing a lesson.
+  private
+  
+  def parse_question(node)
+    res = {}
+    des_audio = node.css('img[id^="question_audio_"]')
+    if !des_audio.empty?
+      des_audio_url = des_audio.first['audio_url']
+      res[:des_audio_url] = des_audio_url
+    end
+    question_span = node.css('span[id^="question_text_"]')
+    if !question_span.empty?
+      res[:question_text] = question_span.first.text
+    end
+    answer_div = node.css('div[id^="explain_div_"]')
+    if !answer_div.empty?
+      answer_span = parse answer_div.first['title']
+      res[:answer_text] = answer_span.text 
+    end
+    p res
+  end
+
   # Returns an array of drill urls for each section in a lesson.
+  # lesson:: an xml node representing a lesson.
   def parse_sections(lesson)
     node = lesson.parent
     sections = node.css('ul>li')
     sections.map do |section|
-      section_a = section.css('>a').first
-      attr = section_a.attribute 'class'
-      if attr && attr.value == 'drill_li'
-        section_name = section_a.text
+      anchor = section.css('>a').first
+      href = anchor['href']
+      if href && /javascript:openDrill\('(?<id>.+)'\)/ =~ href
+        section_name = anchor.text
         section_name.gsub! /\s?\u2192?$/u, ''
-        {section_name: section_name}
+        {section_name: section_name, href: DRILL_URI + id}
       else
         next
       end
     end
   end
 
-  # Parse the input document.
+  # Parses the input document and returns the root node.
   def parse(thing)
     doc = Nokogiri.HTML thing 
     if doc.errors.empty?
@@ -87,25 +110,11 @@ class ExerciseParser
       if got < expected
         @logger.warn do
           "Server hangup fetching #{url}; got #{got} bytes, " +
-          "expected #{exptected}."
+            "expected #{exptected}."
         end
       end
     end
     @curb.body_str
-  end
-end
-
-# A client to access website contents.
-class Client
-  USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/534.30 (KHTML, like Gecko) Chrome/12.0.742.124 Safari/534.30'
-  def initialize 
-    @mech = mechanizer
-    @curb = curber
-  end
-
-  # Returns the html doc string.
-  def html(url)
-    @mech.get(url).body
   end
 
   def mechanizer
@@ -122,3 +131,4 @@ class Client
     curb
   end
 end
+
