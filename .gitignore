@@ -1,3 +1,5 @@
 *.mp3
 Lesson*
 doc
+*.swp
+*.xml

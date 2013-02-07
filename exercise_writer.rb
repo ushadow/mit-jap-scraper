@@ -2,15 +2,15 @@
 
 require 'logger'
 require 'fileutils'
-require_relative 'exercise_client.rb'
+require_relative 'exercise_parser.rb'
 
-class ExerciseCli
+class ExerciseWriter
 
   COURSE_URL = "http://web.mit.edu/%s/www/review.html"
 
   def self.output(input_filename)
     File.open input_filename do |file| 
-      client = ExerciseClient.new file
+      client = ExerciseParser.new file
       course = client.parse_course
       course_name = course[:course_name] 
       prefix = self.to_filename course_name
@@ -52,5 +52,5 @@ class ExerciseCli
 end
 
 if __FILE__ == $0
-  ExerciseCli.output ARGV[0]
+  ExerciseWriter.output ARGV[0]
 end

@@ -6,27 +6,24 @@ require 'logger'
 
 # Wraps a client session for accessing MIT Japanese course website and
 # downlading exercises.
-class ExerciseClient
+class ExerciseParser
   DRILL_URI = 'http://dokkai.scripts.mit.edu/link_page.cgi?drill='
-  USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/534.30 (KHTML, like Gecko) Chrome/12.0.742.124 Safari/534.30'
 
   # Creates a new client instance.
   #
-  # thing:: a url string of the course website or a html +File+ of the website.
+  # str_or_io:: string of html doc or a html +File+.
   #
-  def initialize thing
-    @mech = mechanizer
-    @curb = curber
+  def initialize str_or_io
     @logger = Logger.new(STDERR)
-    @root = doc_root thing
+    @root = parse str_or_io
   end
 
   # Lists all the lessons and sections for a course.
   def parse_course
-    lesson_nodes = lessons @root
+    lesson_nodes = parse_lessons @root 
     lessons = lesson_nodes.map do |lesson|
       lesson_name = lesson.text
-      {lesson_name: lesson_name, sections: sections(lesson)}
+      {lesson_name: lesson_name, sections: parse_sections(lesson)}
     end
     course_name = @root.css('title').text
     {course_name: course_name, lessons: lessons}
@@ -46,7 +43,7 @@ class ExerciseClient
   # Args:
   #   lesson:: an xml node representing a lesson.
   # Returns an array of drill urls for each section in a lesson.
-  def sections(lesson)
+  def parse_sections(lesson)
     node = lesson.parent
     sections = node.css('ul>li')
     sections.map do |section|
@@ -74,7 +71,7 @@ class ExerciseClient
   end
 
   # Gets all the nodes representing a lesson.
-  def lessons(node)
+  def parse_lessons(node)
     node.css('a[name^="lesson"]')
   end
 
@@ -96,14 +93,19 @@ class ExerciseClient
     end
     @curb.body_str
   end
+end
 
-  def doc_root(thing)
-    if thing.class == String
-      doc = @mech.get(thing).body
-      parse doc
-    else
-      parse thing
-    end
+# A client to access website contents.
+class Client
+  USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/534.30 (KHTML, like Gecko) Chrome/12.0.742.124 Safari/534.30'
+  def initialize 
+    @mech = mechanizer
+    @curb = curber
+  end
+
+  # Returns the html doc string.
+  def html(url)
+    @mech.get(url).body
   end
 
   def mechanizer
