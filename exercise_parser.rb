@@ -29,6 +29,7 @@ class ExerciseParser
     {course_name: course_name, lessons: lessons}
   end
 
+  # Takes a url string and returns a hash of a drill.
   def parse_drill(url)
     page = @mech.get url
     root_node = parse page.body 
@@ -41,27 +42,67 @@ class ExerciseParser
       question_node = parse question
       parse_question question_node 
     end 
+    {instruction: instruction, questions: questions}
+  end
+
+  # Returns the bits of a url.
+  def fetch(url)
+    @logger.info "fetching: #{url}"
+    @curb.url = url
+    begin
+      @curb.perform
+    rescue Curl::Err::PartialFileError
+      got = @curb.body_str.length
+      expected = @curb.download_content_length.to_i
+      if got < expected
+        @logger.warn do
+          "Server hangup fetching #{url}; got #{got} bytes, " +
+            "expected #{exptected}."
+        end
+      end
+    end
+    @curb.body_str
   end
 
   private
-  
+
   def parse_question(node)
     res = {}
-    des_audio = node.css('img[id^="question_audio_"]')
-    if !des_audio.empty?
-      des_audio_url = des_audio.first['audio_url']
-      res[:des_audio_url] = des_audio_url
+    question_audio = node.css('img[id^="question_audio_"]')
+    unless question_audio.empty?
+      question_audio_url = question_audio.first['audio_url']
+      res[:question_audio_url] = question_audio_url
     end
     question_span = node.css('span[id^="question_text_"]')
-    if !question_span.empty?
-      res[:question_text] = question_span.first.text
+    unless question_span.empty?
+      text = remove_br(question_span.first).text
+      res[:question_text] = clean_text text 
+    end
+    question_img = node.css('img[id^="question_image_"]')
+    unless question_img.empty?
+      res[:question_img_url] = question_img.first['src']
     end
     answer_div = node.css('div[id^="explain_div_"]')
-    if !answer_div.empty?
+    unless answer_div.empty?
       answer_span = parse answer_div.first['title']
-      res[:answer_text] = answer_span.text 
+      res[:answer_text] = clean_text answer_span.text
     end
-    p res
+    answer_audio = node.css('input[id^="answer_audio_"]')
+    unless answer_audio.empty?
+      res[:answer_audio_url] = answer_audio.first['value']
+    end
+    res
+  end
+
+  def  remove_br node
+    str = node.to_s
+    str.gsub! /<br>/, "\n"
+    parse str
+  end
+
+  def clean_text text
+    text.gsub! /^[\r\n]{2,}/, '' 
+    text.gsub /[\r\n]{2,}/, "\n"
   end
 
   # Returns an array of drill urls for each section in a lesson.
@@ -75,7 +116,7 @@ class ExerciseParser
       if href && /javascript:openDrill\('(?<id>.+)'\)/ =~ href
         section_name = anchor.text
         section_name.gsub! /\s?\u2192?$/u, ''
-        {section_name: section_name, href: DRILL_URI + id}
+        {section_name: section_name, url: DRILL_URI + id}
       else
         next
       end
@@ -96,25 +137,6 @@ class ExerciseParser
   # Gets all the nodes representing a lesson.
   def parse_lessons(node)
     node.css('a[name^="lesson"]')
-  end
-
-  # Returns the bits of an audio url.
-  def audio(url)
-    @logger.info "fetching: #{url}"
-    @curb.url = url
-    begin
-      @curb.perform
-    rescue Curl::Err::PartialFileError
-      got = @curb.body_str.length
-      expected = @curb.download_content_length.to_i
-      if got < expected
-        @logger.warn do
-          "Server hangup fetching #{url}; got #{got} bytes, " +
-            "expected #{exptected}."
-        end
-      end
-    end
-    @curb.body_str
   end
 
   def mechanizer
