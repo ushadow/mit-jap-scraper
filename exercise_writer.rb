@@ -24,6 +24,7 @@ class ExerciseWriter
       course_name = course[:course_name] 
       prefix = to_filename course_name
       filename  = prefix + '.xml'
+      filename.downcase!
       File.open filename, 'w' do |output_file|
         output_course course, output_file, prefix
       end

@@ -1,0 +1,35 @@
+#!/usr/bin/env rake
+require 'sqlite3'
+
+DB_NAME = 'course.sqlite'
+
+def db_create
+  db = SQLite3::Database.open DB_NAME
+  db.execute_batch <<-SQL
+    CREATE TABLE android_metadata (
+      locale TEXT DEFAULT 'en_US'
+    );
+    CREATE TABLE course (
+      _id INTEGER PRIMARY KEY,
+      title TEXT NOT NULL,
+      url TEXT NOT NULL,
+      hash BLOB
+    );
+    INSERT INTO android_metadata VALUES ('en_US');
+    INSERT INTO course(title, url) VALUES(
+      'MIT Japanese 2',
+      'http://web.mit.edu/21f.502/www/review.html'
+    );
+  SQL
+end
+
+namespace 'db' do
+  task :create do
+    if File.exist? DB_NAME
+      File.delete DB_NAME
+    end
+    db_create
+  end
+end
+
+
