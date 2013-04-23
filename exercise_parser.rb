@@ -11,7 +11,7 @@ class ExerciseParser
   USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/534.30 (KHTML, like Gecko) Chrome/12.0.742.124 Safari/534.30'
 
   # Creates a new client instance.
-  def initialize 
+  def initialize
     @logger = Logger.new(STDERR)
     @mech = mechanizer
     @curb = curber
@@ -20,7 +20,7 @@ class ExerciseParser
   # Lists all the lessons and sections for a course.
   def parse_course(str_or_io)
     root = parse str_or_io
-    lesson_nodes = parse_lessons root 
+    lesson_nodes = parse_lessons root
     lessons = lesson_nodes.map do |lesson|
       lesson_name = lesson.text
       {lesson_name: lesson_name, sections: parse_sections(lesson)}
@@ -32,16 +32,16 @@ class ExerciseParser
   # Takes a url string and returns a hash of a drill.
   def parse_drill(url)
     page = @mech.get url
-    root_node = parse page.body 
+    root_node = parse page.body
     instruction = root_node.css('#instr_text').text
     frames = page.iframes
     frame = frames[0]
     html = @mech.get(frame.uri).body
     regex =  %r{<div .*?class="list".*?</div>\s*</div>}m
-    questions =  html.scan(regex).map do |question| 
+    questions =  html.scan(regex).map do |question|
       question_node = parse question
-      parse_question question_node 
-    end 
+      parse_question question_node
+    end
     {instruction: instruction, questions: questions}
   end
 
@@ -76,7 +76,7 @@ class ExerciseParser
     question_span = node.css('span[id^="question_text_"]')
     unless question_span.empty?
       text = remove_br(question_span.first).text
-      res[:question_text] = clean_text text 
+      res[:question_text] = clean_text text
     end
     question_img = node.css('img[id^="question_image_"]')
     unless question_img.empty?
@@ -101,7 +101,7 @@ class ExerciseParser
   end
 
   def clean_text text
-    text.gsub! /^[\r\n]{2,}/, '' 
+    text.gsub! /^[\r\n]{2,}/, ''
     text.gsub /[\r\n]{2,}/, "\n"
   end
 
@@ -125,7 +125,7 @@ class ExerciseParser
 
   # Parses the input document and returns the root node.
   def parse(thing)
-    doc = Nokogiri.HTML thing 
+    doc = Nokogiri.HTML thing
     if doc.errors.empty?
       @logger.info 'Document is well formed'
     else
