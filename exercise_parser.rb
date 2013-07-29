@@ -5,7 +5,7 @@ require 'curb'
 require 'logger'
 
 # Wraps a client session for accessing MIT Japanese course website and
-# downlading exercises.
+# downloading exercises.
 class ExerciseParser
   DRILL_URI = 'http://dokkai.scripts.mit.edu/link_page.cgi?drill='
   USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/534.30 (KHTML, like Gecko) Chrome/12.0.742.124 Safari/534.30'

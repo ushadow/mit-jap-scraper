@@ -1,10 +1,15 @@
 #!/usr/bin/env rake
 require 'sqlite3'
+require 'digest/md5'
+require 'mechanize'
 
 DB_NAME = 'course.db'
-COURSE_URL = '\'http://web.mit.edu/21f.502/www/review.html\''
+COURSE_URL = 'http://web.mit.edu/21f.502/www/review.html'
 
 def db_create
+  agent = Mechanize.new
+  html = agent.get_file COURSE_URL
+  digest = Digest::MD5.digest html
   db = SQLite3::Database.open DB_NAME
   db.execute_batch <<-SQL
     CREATE TABLE android_metadata (
@@ -14,14 +19,16 @@ def db_create
       _id INTEGER PRIMARY KEY,
       title TEXT NOT NULL,
       url TEXT NOT NULL,
-      hash BLOB
+      hash BLOB NOT NULL
     );
     INSERT INTO android_metadata VALUES ('en_US');
-    INSERT INTO course(title, url) VALUES (
-      'MIT Japanese 2',
-      #{COURSE_URL}
-    );
   SQL
+
+  insert_stmt = <<-SQL
+    INSERT INTO course(title, url, hash) VALUES (
+      'MIT Japanese 2', '#{COURSE_URL}', ?)
+  SQL
+  db.execute insert_stmt, SQLite3::Blob.new(digest)
 end
 
 namespace 'db' do
