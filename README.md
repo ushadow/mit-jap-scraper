@@ -17,10 +17,10 @@ course. For example, [MIT Japanese
 
 This will parse the html file and save an xml file with the course name in the
 main folder and
-creates an "asset" folder that stores all the xml files for the drills and the
+creates an "assets" folder that stores all the xml files for the drills and the
 audio and the image files.
 
-There is already an example html file in the `input` folder, so you can test by
+There is already an example html file in the "input" folder, so you can test by
 running
 ```
 ./exercise_writer.rb input/MIT_Japanese_502.html 
