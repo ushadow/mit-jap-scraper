@@ -6,7 +6,6 @@ require_relative 'exercise_parser.rb'
 
 class ExerciseWriter
 
-  COURSE_URL = "http://web.mit.edu/%s/www/review.html"
   XML_ENCODING = '<?xml version="1.0" encoding="UTF-8"?>' 
   ASSET_DIR = 'assets'
   AUDIO_DIR = 'audio'
@@ -15,19 +14,28 @@ class ExerciseWriter
   def initialize
     FileUtils.mkdir_p File.join ASSET_DIR, AUDIO_DIR
     FileUtils.mkdir_p File.join ASSET_DIR, IMAGE_DIR
+    @parser = ExerciseParser.new
   end
 
-  def write_to_file(input_filename)
+  def fetch_url(url)
+    str = @parser.fetch url
+    write_to_file str
+  end  
+
+  def fetch_file(input_filename)
     File.open input_filename do |file| 
-      @parser = ExerciseParser.new 
-      course = @parser.parse_course file
-      course_name = course[:course_name] 
-      prefix = to_filename course_name
-      filename  = prefix + '.xml'
-      filename.downcase!
-      File.open filename, 'w' do |output_file|
-        output_course course, output_file, prefix
-      end
+      write_to_file file
+    end
+  end
+    
+  def write_to_file(str_or_io)
+    course = @parser.parse_course str_or_io 
+    course_name = course[:course_name] 
+    prefix = to_filename course_name
+    filename  = prefix + '.xml'
+    filename.downcase!
+    File.open filename, 'w' do |output_file|
+      output_course course, output_file, prefix
     end
   end
 
@@ -137,5 +145,5 @@ class ExerciseWriter
 end
 
 if __FILE__ == $0
-  ExerciseWriter.new.write_to_file ARGV[0]
+  ExerciseWriter.new.fetch_url ARGV[0]
 end
