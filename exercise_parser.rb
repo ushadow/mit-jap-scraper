@@ -33,7 +33,9 @@ class ExerciseParser
   def parse_drill(url)
     page = @mech.get url
     root_node = parse page.body
-    instruction = root_node.css('#instr_text').text
+    instruction_node = root_node.css('#instr_text')
+    add_ruby_marker instruction_node
+    instruction = clean_text instruction_node.text
     frames = page.iframes
     frame = frames[0]
     html = @mech.get(frame.uri).body
@@ -75,6 +77,7 @@ class ExerciseParser
     end
     question_span = node.css('span[id^="question_text_"]')
     unless question_span.empty?
+      add_ruby_marker question_span.first
       text = remove_br(question_span.first).text
       res[:question_text] = clean_text text
     end
@@ -85,6 +88,7 @@ class ExerciseParser
     answer_div = node.css('div[id^="explain_div_"]')
     unless answer_div.empty?
       answer_span = parse answer_div.first['title']
+      add_ruby_marker answer_span
       res[:answer_text] = clean_text answer_span.text
     end
     answer_audio = node.css('input[id^="answer_audio_"]')
@@ -94,13 +98,24 @@ class ExerciseParser
     res
   end
 
-  def  remove_br node
+  def add_ruby_marker(node)
+    node.css('rt').each do |n|
+      el = n.children.first
+      el.content = '[rt]' + el.text + '[/rt]'
+    end
+    node.css('rb').each do |n|
+      el = n.children.first
+      el.content = '[rb]' + el.text + '[/rb]'
+    end
+  end
+
+  def remove_br(node)
     str = node.to_s
     str.gsub! /<br>/, "\n"
     parse str
   end
 
-  def clean_text text
+  def clean_text(text)
     text.gsub! /^[\r\n]{2,}/, ''
     text.gsub /[\r\n]{2,}/, "\n"
   end

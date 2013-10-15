@@ -6,35 +6,36 @@ require_relative 'exercise_parser.rb'
 
 class ExerciseWriter
 
-  XML_ENCODING = '<?xml version="1.0" encoding="UTF-8"?>' 
+  XML_ENCODING = '<?xml version="1.0" encoding="UTF-8"?>'
   ASSET_DIR = 'assets'
   AUDIO_DIR = 'audio'
   IMAGE_DIR = 'image'
 
-  def initialize
+  def initialize(save_bin = true)
     FileUtils.mkdir_p File.join ASSET_DIR, AUDIO_DIR
     FileUtils.mkdir_p File.join ASSET_DIR, IMAGE_DIR
     @parser = ExerciseParser.new
+    @save_bin = save_bin
   end
 
   def fetch_url(url)
     str = @parser.fetch url
     write_to_file str
-  end  
+  end
 
   def fetch_file(input_filename)
-    File.open input_filename do |file| 
+    File.open input_filename do |file|
       write_to_file file
     end
   end
-    
+
   def write_to_file(str_or_io)
-    course = @parser.parse_course str_or_io 
-    course_name = course[:course_name] 
+    course = @parser.parse_course str_or_io
+    course_name = course[:course_name]
     prefix = to_filename course_name
     filename  = prefix + '.xml'
     filename.downcase!
-    File.open filename, 'w' do |output_file|
+    File.open File.join(ASSET_DIR, filename), 'w' do |output_file|
       output_course course, output_file, prefix
     end
   end
@@ -44,24 +45,24 @@ class ExerciseWriter
   def output_course(hash, file, prefix)
     file.puts XML_ENCODING
     file.puts "<course name=\"#{hash[:course_name]}\">"
-    hash[:lessons].each { |l| output_lesson l, file, prefix } 
+    hash[:lessons].each { |l| output_lesson l, file, prefix }
     file.puts '</course>'
   end
-  
+
   def output_lesson(hash, file, prefix)
     lesson_name = hash[:lesson_name]
     file.puts "<lesson name=\"#{lesson_name}\">"
     prefix = "#{prefix}_#{to_filename lesson_name}"
-    hash[:sections].each { |s| output_drill_tag s, file, prefix } 
+    hash[:sections].each_with_index { |s, i| output_drill_tag s, file, prefix, i }
     file.puts '</lesson>'
   end
 
-  def output_drill_tag(hash, file, prefix)
+  def output_drill_tag(hash, file, prefix, i)
     if hash
-      section_name = hash[:section_name]
-      filename = "#{prefix}_#{to_filename section_name}.xml"
-      file.puts "<drill src=\"#{filename}\">#{section_name}</drill>"
-      write_to_drill_file hash[:url], filename 
+      drill_name = hash[:section_name]
+      filename = "#{prefix}_#{to_drill_filename i}.xml"
+      file.puts "<drill src=\"#{filename}\">#{drill_name}</drill>"
+      write_to_drill_file hash[:url], filename
     end
   end
 
@@ -87,7 +88,7 @@ class ExerciseWriter
       shortname = basename q_audio_url
       if shortname
         shortname = File.join AUDIO_DIR, shortname
-        save_bin_file q_audio_url, shortname 
+        save_bin_file q_audio_url, shortname
         q_audio_url = "audio=\"#{shortname}\""
       else
         q_audio_url = nil
@@ -111,7 +112,7 @@ class ExerciseWriter
     if answer_audio_url
       shortname = basename answer_audio_url
       if shortname
-        shortname = File.join AUDIO_DIR, shortname 
+        shortname = File.join AUDIO_DIR, shortname
         save_bin_file answer_audio_url, shortname
         answer_audio_url = "audio=\"#{shortname}\""
       end
@@ -119,17 +120,22 @@ class ExerciseWriter
     file.puts "<answer #{answer_audio_url}>#{hash[:answer_text]}</answer>"
     file.puts '</exercise>'
   end
- 
+
   def basename(url)
     md = %r{.+/(?<filename>[^/]+\.\w+$)}m.match url
     md && md[:filename]
   end
 
+  def to_drill_filename(index)
+    "%03d" % index
+  end
+
   def to_filename(string)
-    string.split(/[^\d\w]+/).join '_'
+    string.gsub(/\s+/u, '_')
   end
 
   def save_bin_file(url, filename)
+    return unless @save_bin
     filename = File.join ASSET_DIR, filename
     return if File.exist? filename
     bits = @parser.fetch url
