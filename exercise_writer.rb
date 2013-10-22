@@ -57,12 +57,24 @@ class ExerciseWriter
     file.puts '</lesson>'
   end
 
-  def output_drill_tag(hash, file, prefix, i)
+  # == Parameters:
+  # i::
+  #   The index of the drill.
+  def output_drill_tag(hash, file, prefix, i, add_index_to_name = false)
     if hash
-      drill_name = hash[:section_name]
-      filename = "#{prefix}_#{to_drill_filename i}.xml"
-      file.puts "<drill src=\"#{filename}\">#{drill_name}</drill>"
-      write_to_drill_file hash[:url], filename
+      if hash.key? :drill_name
+        drill_name = hash[:drill_name]
+        if (add_index_to_name)
+          drill_name += " #{i + 1}"
+        end
+        filename = "#{prefix}_#{to_index_filename i}.xml"
+        file.puts "<drill src=\"#{filename}\">#{drill_name}</drill>"
+        write_to_drill_file hash[:url], filename
+      else hash.key? :section_name
+        section_name = hash[:section_name]
+        prefix = "#{prefix}_#{to_index_filename i}"
+        hash[:drills].each_with_index { |s, i| output_drill_tag s, file, prefix, i, true}
+      end
     end
   end
 
@@ -126,7 +138,7 @@ class ExerciseWriter
     md && md[:filename]
   end
 
-  def to_drill_filename(index)
+  def to_index_filename(index)
     "%03d" % index
   end
 

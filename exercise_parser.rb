@@ -23,7 +23,10 @@ class ExerciseParser
     lesson_nodes = parse_lessons root
     lessons = lesson_nodes.map do |lesson|
       lesson_name = lesson.text
-      {lesson_name: lesson_name, sections: parse_sections(lesson)}
+      node = lesson.parent
+      # Selects all <li> where the parent is a <ul>.
+      sections = node.css('ul>li')
+      {lesson_name: lesson_name, sections: parse_drill_list(sections)}
     end
     course_name = root.css('title').text
     {course_name: course_name, lessons: lessons}
@@ -101,7 +104,7 @@ class ExerciseParser
   def add_ruby_marker(node)
     node.css('rt').each do |n|
       el = n.children.first
-      el.content = '[rt]' + el.text + '[/rt]'
+      el.content = '[rt]' + el.text + '[/rt]' unless el.nil?
     end
     node.css('rb').each do |n|
       el = n.children.first
@@ -117,21 +120,28 @@ class ExerciseParser
 
   def clean_text(text)
     text.gsub! /^[\r\n]{2,}/, ''
+    text.gsub! /&/, '&amp;'
     text.gsub /[\r\n]{2,}/, "\n"
   end
 
   # Returns an array of drill urls for each section in a lesson.
   # lesson:: an xml node representing a lesson.
-  def parse_sections(lesson)
-    node = lesson.parent
-    sections = node.css('ul>li')
+  def parse_drill_list(sections)
     sections.map do |section|
       anchor = section.css('>a').first
       href = anchor['href']
-      if href && /javascript:openDrill\('(?<id>.+)'\)/ =~ href
-        section_name = anchor.text
-        section_name.gsub! /\s?\u2192?$/u, ''
-        {section_name: section_name, url: DRILL_URI + id}
+      if href
+        name = anchor.text
+        name.strip!
+        name.gsub! /\s?\u2192?$/u, ''
+        name.gsub! /\s{2,}/, ' '
+        name = clean_text name
+        if /javascript:openDrill\('(?<id>.+)'\)/ =~ href
+          {drill_name: name, url: DRILL_URI + id}
+        elsif /javascript:showList.*/ =~ href
+          drills = section.css('ol>li')
+          {section_name: name, drills: parse_drill_list(drills)}
+        end
       else
         next
       end
